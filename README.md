@@ -37,17 +37,17 @@ Playback works via:
 ### 1. Clone and set up
 
 ```bash
-git clone https://github.com/yourusername/mcp-radio-server.git
+git clone https://github.com/sdmeers/mcp-radio-server.git
 cd mcp-radio-server
-python -m venv .venv
+uv venv .venv
 source .venv/bin/activate   # or .\.venv\Scripts\activate on Windows
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### 2. Run the server
 
 ```bash
-python server.py
+uv run server.py
 ```
 
 By default this runs with MCP’s standard I/O transport (ready for connection to an MCP-aware LLM client).
