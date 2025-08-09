@@ -22,15 +22,13 @@ Playback works via:
 
 ## 📂 Repository Structure
 
+```
 .
-├── server.py # Main MCP server implementation
-├── requirements.txt # Python dependencies
-├── add_to_system_prompt.txt # Paste this into your LLM system prompt for correct tool usage
-└── README.md # This file
-
-yaml
-Copy
-Edit
+├── server.py                 # Main MCP server implementation
+├── requirements.txt          # Python dependencies
+├── add_to_system_prompt.txt  # Paste this into your LLM system prompt for correct tool usage
+└── README.md                 # This file
+```
 
 ---
 
@@ -44,71 +42,91 @@ cd mcp-radio-server
 python -m venv .venv
 source .venv/bin/activate   # or .\.venv\Scripts\activate on Windows
 pip install -r requirements.txt
-2. Run the server
-bash
-Copy
-Edit
+```
+
+### 2. Run the server
+
+```bash
 python server.py
+```
+
 By default this runs with MCP’s standard I/O transport (ready for connection to an MCP-aware LLM client).
 
-🛠 Tools Exposed to the LLM
-Tool	Purpose
-find_station(query, country?, tag?, limit=10)	Search Radio Browser for stations.
-get_playable_stream(url)	Resolve playlists/redirects to a direct audio stream.
-play(url, backend="auto"|"default"|"vlc", force_playlist=true)	Play a stream using OS default player or VLC.
-play_default(url, force_playlist=true)	Open in OS default handler (writes .m3u if forced).
-play_vlc(url, with_rc=false, rc_host="127.0.0.1", rc_port=4212)	Launch VLC, optionally enabling RC interface for later control.
-check_players()	Return {has_gui, vlc_available, platform}.
-vlc_pause()	Toggle pause/resume in VLC.
-vlc_stop()	Stop playback in VLC.
-vlc_volume_set(percent)	Set VLC volume (0–100%).
-vlc_volume_change(delta)	Adjust VLC volume by +/- percent.
-vlc_status()	Return VLC’s current RC status output.
+---
 
-🧠 Connecting to Your LLM
-Open add_to_system_prompt.txt.
+## 🛠 Tools Exposed to the LLM
 
-Paste its contents into your LLM system prompt before starting a conversation.
+| Tool | Purpose |
+|------|---------|
+| **`find_station(query, country?, tag?, limit=10)`** | Search Radio Browser for stations. |
+| **`get_playable_stream(url)`** | Resolve playlists/redirects to a direct audio stream. |
+| **`play(url, backend="auto"\|"default"\|"vlc", force_playlist=true)`** | Play a stream using OS default player or VLC. |
+| **`play_default(url, force_playlist=true)`** | Open in OS default handler (writes `.m3u` if forced). |
+| **`play_vlc(url, with_rc=false, rc_host="127.0.0.1", rc_port=4212)`** | Launch VLC, optionally enabling RC interface for later control. |
+| **`check_players()`** | Return `{has_gui, vlc_available, platform}`. |
+| **`vlc_pause()`** | Toggle pause/resume in VLC. |
+| **`vlc_stop()`** | Stop playback in VLC. |
+| **`vlc_volume_set(percent)`** | Set VLC volume (0–100%). |
+| **`vlc_volume_change(delta)`** | Adjust VLC volume by +/- percent. |
+| **`vlc_status()`** | Return VLC’s current RC status output. |
 
-The text tells your LLM:
+---
 
-How to chain the tools (find_station → get_playable_stream → play).
+## 🧠 Connecting to Your LLM
 
-When to use VLC (and enable RC for controls).
+1. Open `add_to_system_prompt.txt`.
+2. Paste its contents into your LLM system prompt **before** starting a conversation.
+3. The text tells your LLM:
+   - How to chain the tools (`find_station` → `get_playable_stream` → `play`).
+   - When to use VLC (and enable RC for controls).
+   - How to handle disambiguation and playback issues.
 
-How to handle disambiguation and playback issues.
+---
 
-💻 Example Interactions
-Play a station (desktop GUI)
-User: Play BBC Radio 3
-LLM tool calls:
+## 💻 Example Interactions
 
-find_station("BBC Radio 3", country="United Kingdom")
+### Play a station (desktop GUI)  
+**User:**  
+```
+Play BBC Radio 3
+```  
+**LLM tool calls:**  
+1. `find_station("BBC Radio 3", country="United Kingdom")`  
+2. `get_playable_stream(url="<best match>")`  
+3. `play(url="<resolved>", backend="auto")`  
 
-get_playable_stream(url="<best match>")
+---
 
-play(url="<resolved>", backend="auto")
+### Play with VLC and control  
+**User:**  
+```
+Play Classic FM using VLC
+```  
+**LLM tool calls:**  
+1. `find_station("Classic FM", country="United Kingdom")`  
+2. `get_playable_stream(url="<best match>")`  
+3. `play_vlc(url="<resolved>", with_rc=True)`  
 
-Play with VLC and control
-User: Play Classic FM using VLC
-LLM tool calls:
+Later:  
+- `vlc_pause()`  
+- `vlc_volume_set(60)`  
+- `vlc_stop()`
 
-find_station("Classic FM", country="United Kingdom")
+---
 
-get_playable_stream(url="<best match>")
+### Check environment  
+**User:**  
+```
+Check my audio player options
+```  
+**LLM tool calls:**  
+`check_players()` → `{has_gui: true, vlc_available: true, platform: "darwin"}`
 
-play_vlc(url="<resolved>", with_rc=True)
-Later: vlc_pause(), vlc_volume_set(60), vlc_stop()
+---
 
-Check environment
-User: Check my audio player options
-LLM tool calls:
-check_players() → {has_gui: true, vlc_available: true, platform: "darwin"}
+## 📊 Flow Diagram
 
-📊 Flow Diagram
-mermaid
-Copy
-Edit
+```mermaid
 flowchart TD
     A[User Request: "Play BBC Radio 3"] --> B[find_station]
     B --> C[Select Best Match]
@@ -118,17 +136,25 @@ flowchart TD
     E -->|No GUI or VLC Requested| G[play_vlc with_rc=True]
     G --> H[Controls: pause/stop/volume/status]
     F --> H
-🔧 Notes
-VLC Control: For pause/stop/volume tools to work, VLC must be started with RC enabled (with_rc=True in play_vlc).
+```
 
-Default Player Mode: play_default writes a .m3u file when force_playlist=True so the OS is more likely to hand it to a media player instead of a browser.
+---
 
-Station Coverage: Radio Browser has excellent global coverage. If a station isn’t found, consider adding other open directories like Icecast.
+## 🔧 Notes
 
-📜 License
-MIT License. See LICENSE for details.
+- **VLC Control:** For pause/stop/volume tools to work, VLC must be started with RC enabled (`with_rc=True` in `play_vlc`).
+- **Default Player Mode:** `play_default` writes a `.m3u` file when `force_playlist=True` so the OS is more likely to hand it to a media player instead of a browser.
+- **Station Coverage:** Radio Browser has excellent global coverage. If a station isn’t found, consider adding other open directories like Icecast.
 
-🙌 Credits
-Radio Browser for the free, open station directory.
+---
 
-Model Context Protocol for the MCP tooling framework.
+## 📜 License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## 🙌 Credits
+
+- [Radio Browser](https://www.radio-browser.info) for the free, open station directory.
+- [Model Context Protocol](https://modelcontextprotocol.io) for the MCP tooling framework.
