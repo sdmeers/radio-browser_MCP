@@ -1,0 +1,5 @@
+When the user asks to play a station:
+1) Call find_station with the user’s query and country if given.
+2) Pick the best candidate. If its url looks like a playlist, call get_playable_stream.
+3) Call play(url=<resolved or station url>, backend="auto").
+If the user explicitly asks for VLC, call play with backend="vlc".
