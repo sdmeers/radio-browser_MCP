@@ -5,6 +5,7 @@ import sys
 import os
 import tempfile
 import shlex
+import socket
 import subprocess
 from mcp.server.fastmcp import FastMCP, Context
 
@@ -202,20 +203,33 @@ async def play_vlc(
     url: str,
     vlc_path: Optional[str] = None,
     extra_args: Optional[List[str]] = None,
+    with_rc: bool = False,
+    rc_host: str = "127.0.0.1",
+    rc_port: int = 4212,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
     Launch VLC to play the given URL. Returns immediately.
+    - with_rc=True adds VLC's RC interface on rc_host:rc_port so other tools can control it.
     - extra_args examples: ["--one-instance","--play-and-exit"].
     """
     exe = _detect_vlc_path(vlc_path)
     args = [exe]
     if extra_args:
         args.extend(extra_args)
+    if with_rc:
+        # Expose RC on TCP so we can control it
+        args.extend(["--extraintf", "rc", f"--rc-host={rc_host}:{rc_port}"])
     args.append(url)
     try:
         subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return {"ok": True, "launched": " ".join(shlex.quote(a) for a in args), "mode": "vlc"}
+        return {
+            "ok": True,
+            "launched": " ".join(shlex.quote(a) for a in args),
+            "mode": "vlc",
+            "rc_host": rc_host if with_rc else None,
+            "rc_port": rc_port if with_rc else None
+        }
     except FileNotFoundError:
         return {"ok": False, "error": "VLC not found. Install VLC or provide vlc_path.", "mode": "vlc"}
     except Exception as e:
