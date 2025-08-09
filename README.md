@@ -128,7 +128,7 @@ Check my audio player options
 
 ```mermaid
 flowchart TD
-    A[User Request: "Play BBC Radio 3"] --> B[find_station]
+    A[User Request: Play BBC Radio 3] --> B[find_station]
     B --> C[Select Best Match]
     C --> D[get_playable_stream]
     D --> E{Backend Choice}
