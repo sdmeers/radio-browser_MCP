@@ -165,6 +165,79 @@ def _detect_vlc_path(vlc_path: Optional[str]) -> Optional[str]:
         return "vlc"
     return "vlc"  # macOS/Linux expect in PATH
 
+# ---------- VLC RC control helpers ----------
+
+def _send_vlc_rc(host: str, port: int, commands: List[str], timeout: float = 1.5) -> Dict[str, Any]:
+    """
+    Send one or more RC commands to VLC (TCP). Returns raw response text.
+    """
+    buf = b""
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            # Read initial banner/prompt if any (non-fatal if it times out)
+            try:
+                buf += s.recv(4096)
+            except Exception:
+                pass
+            for cmd in commands:
+                s.sendall((cmd.strip() + "\n").encode("utf-8"))
+                try:
+                    buf += s.recv(8192)
+                except Exception:
+                    # Some commands don't respond immediately; ignore
+                    pass
+            # Send 'status' at end to force output if nothing returned
+            if not buf:
+                try:
+                    s.sendall(b"status\n")
+                    buf += s.recv(8192)
+                except Exception:
+                    pass
+        return {"ok": True, "response": buf.decode(errors="replace")}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
+
+@mcp.tool()
+async def vlc_pause(rc_host: str = "127.0.0.1", rc_port: int = 4212, ctx: Context=None) -> Dict[str, Any]:
+    """Toggle pause/play on VLC (RC)."""
+    return _send_vlc_rc(rc_host, rc_port, ["pause"])
+
+@mcp.tool()
+async def vlc_stop(rc_host: str = "127.0.0.1", rc_port: int = 4212, ctx: Context=None) -> Dict[str, Any]:
+    """Stop playback in VLC (RC)."""
+    return _send_vlc_rc(rc_host, rc_port, ["stop"])
+
+@mcp.tool()
+async def vlc_volume_set(percent: int, rc_host: str = "127.0.0.1", rc_port: int = 4212, ctx: Context=None) -> Dict[str, Any]:
+    """
+    Set VLC volume (0–100). Internally maps to VLC's 0–512 scale.
+    """
+    p = max(0, min(100, percent))
+    # VLC RC volume is 0..512; map linearly
+    level = int(round(p * 5.12))
+    return _send_vlc_rc(rc_host, rc_port, [f"volume {level}", "status"])
+
+@mcp.tool()
+async def vlc_volume_change(delta: int, rc_host: str = "127.0.0.1", rc_port: int = 4212, ctx: Context=None) -> Dict[str, Any]:
+    """
+    Change volume by +/- percent. Positive raises, negative lowers.
+    """
+    if delta >= 0:
+        # 'volup <steps>' where 1 step ≈ 8 in 0..512 scale (~1.56%)
+        steps = max(1, int(round(delta / 1.56)))
+        cmds = [f"volup {steps}"]
+    else:
+        steps = max(1, int(round(abs(delta) / 1.56)))
+        cmds = [f"voldown {steps}"]
+    cmds.append("status")
+    return _send_vlc_rc(rc_host, rc_port, cmds)
+
+@mcp.tool()
+async def vlc_status(rc_host: str = "127.0.0.1", rc_port: int = 4212, ctx: Context=None) -> Dict[str, Any]:
+    """Return VLC RC 'status' output."""
+    return _send_vlc_rc(rc_host, rc_port, ["status"])
+
 def _has_gui() -> bool:
     if sys.platform.startswith("win") or sys.platform.startswith("darwin"):
         return True
